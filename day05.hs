@@ -19,19 +19,14 @@ import           Debug.Trace                    ( traceShow )
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           Data.Bits                      ( Bits )
-import           Data.Word                      ( Word8 )
 import qualified Data.Bits                     as Bits
 
 seatID :: String -> Int
-seatID pass = (row * 8) + col
-  where
-    col                = toBits ((== 'R') <$> colPass)
-    row                = toBits ((== 'B') <$> rowPass)
-    (rowPass, colPass) = splitAt 7 pass
+seatID = toBits . fmap (`elem` ("RB" :: String))
 
 toBits :: [Bool] -> Int
 toBits bits = toBits' 0 0 $ reverse bits
-toBits' :: Word8 -> Int -> [Bool] -> Int
+toBits' :: Int -> Int -> [Bool] -> Int
 toBits' bits i []             = fromIntegral bits
 toBits' bits i (True  : rest) = toBits' (bits `Bits.setBit` i) (i + 1) rest
 toBits' bits i (False : rest) = toBits' bits (i + 1) rest
