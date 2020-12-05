@@ -20,16 +20,17 @@ import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           Data.Bits                      ( Bits )
 import qualified Data.Bits                     as Bits
+import           Control.Arrow                  ((>>>))
 
 seatID :: String -> Int
 seatID = toBits . fmap (`elem` ("RB" :: String))
 
 toBits :: [Bool] -> Int
-toBits bits = toBits' 0 0 $ reverse bits
-toBits' :: Int -> Int -> [Bool] -> Int
-toBits' bits i []             = fromIntegral bits
-toBits' bits i (True  : rest) = toBits' (bits `Bits.setBit` i) (i + 1) rest
-toBits' bits i (False : rest) = toBits' bits (i + 1) rest
+toBits = reverse
+     >>> zip [0..]
+     >>> filter snd
+     >>> fmap fst
+     >>> foldr (flip Bits.setBit) 0
 
 solve :: Text -> Int
 solve input = maximum (seatID . unpack <$> lines input)
