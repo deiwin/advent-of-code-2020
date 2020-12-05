@@ -18,19 +18,23 @@ import           Test.HUnit.Base                ( Test(TestCase)
 import           Debug.Trace                    ( traceShow )
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
+import           Data.Bits                      ( Bits )
+import           Data.Word                      ( Word8 )
+import qualified Data.Bits                     as Bits
 
 seatID :: String -> Int
 seatID pass = (row * 8) + col
   where
-    col                = bSearch 0 7 ((== 'R') <$> colPass)
-    row                = bSearch 0 127 ((== 'B') <$> rowPass)
+    col                = toBits ((== 'R') <$> colPass)
+    row                = toBits ((== 'B') <$> rowPass)
     (rowPass, colPass) = splitAt 7 pass
 
-bSearch :: Int -> Int -> [Bool] -> Int
-bSearch bot top [] = bot
-bSearch bot top (pickHigher : rest) | pickHigher = bSearch (split + 1) top rest
-                                    | otherwise  = bSearch bot split rest
-    where split = bot + ((top - bot) `div` 2)
+toBits :: [Bool] -> Int
+toBits bits = toBits' 0 0 $ reverse bits
+toBits' :: Word8 -> Int -> [Bool] -> Int
+toBits' bits i []             = fromIntegral bits
+toBits' bits i (True  : rest) = toBits' (bits `Bits.setBit` i) (i + 1) rest
+toBits' bits i (False : rest) = toBits' bits (i + 1) rest
 
 solve :: Text -> Int
 solve input = maximum (seatID . unpack <$> lines input)
@@ -48,7 +52,7 @@ main = do
     input <- readFile "inputs/day05.txt"
     runTestTT $ TestCase $ do
         7 `div` 2 @?= 3
-        bSearch 0 7 [True, False, True] @?= 5
+        toBits [True, False, True] @?= 5
         seatID "FBFBBFFRLR" @?= 357
         solve input @?= 826
         solve2 input @?= 678
