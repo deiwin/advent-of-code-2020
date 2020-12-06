@@ -21,8 +21,8 @@ countUnique :: [String] -> Int
 countUnique = length . nub . concat
 
 countAll :: [String] -> Int
-countAll answers = length $ filter f $ nub $ concat answers
-    where f answ = all (elem answ) answers
+countAll forms = length $ filter f $ nub $ concat forms
+    where f answ = all (elem answ) forms
 
 solve :: Text -> Int
 solve input = sum (countUnique . fmap unpack . lines <$> splitOn "\n\n" input)
