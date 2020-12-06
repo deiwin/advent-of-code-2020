@@ -27,25 +27,19 @@ import qualified Data.Set                      as Set
 import           Control.Arrow                  ( (>>>) )
 
 countUnique :: String -> Int
-countUnique = filter isLetter >>> Set.fromList >>> Set.size
+countUnique = filter isLetter
+          >>> Set.fromList
+          >>> Set.size
 
 countAll :: [String] -> Int
-countAll answers = countMax (length answers) chatLists
-    where chatLists = reverse $ sortOn length $ group $ sort $ concat answers
-
-countMax :: Int -> [[a]] -> Int
-countMax = countMax' 0
-countMax' :: Int -> Int -> [[a]] -> Int
-countMax' acc _ [] = acc
-countMax' acc m (x : rest) | length x < m = acc
-                           | otherwise    = countMax' (acc + 1) m rest
-
+countAll answers = length $ filter f $ nub $ concat answers
+    where f answ = all (elem answ) answers
 
 solve :: Text -> Int
 solve input = sum (countUnique . unpack <$> splitOn "\n\n" input)
 
 solve2 :: Text -> Int
-solve2 input = sum (countAll . fmap (nub . unpack) . lines <$> splitOn "\n\n" input)
+solve2 input = sum (countAll . fmap unpack . lines <$> splitOn "\n\n" input)
 
 main = do
     input <- readFile "inputs/day06.txt"
