@@ -11,32 +11,21 @@ import           Data.Text                      ( Text
                                                 , splitOn
                                                 )
 import           Data.Text.IO                   ( readFile )
-import           Data.List                      ( sortOn
-                                                , sort
-                                                , group
-                                                , nub
-                                                )
+import           Data.List                      ( nub )
 import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
-import           Debug.Trace                    ( traceShow )
-import           Data.Char                      ( isLetter )
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as Set
-import           Control.Arrow                  ( (>>>) )
 
-countUnique :: String -> Int
-countUnique = filter isLetter
-          >>> Set.fromList
-          >>> Set.size
+countUnique :: [String] -> Int
+countUnique = length . nub . concat
 
 countAll :: [String] -> Int
 countAll answers = length $ filter f $ nub $ concat answers
     where f answ = all (elem answ) answers
 
 solve :: Text -> Int
-solve input = sum (countUnique . unpack <$> splitOn "\n\n" input)
+solve input = sum (countUnique . fmap unpack . lines <$> splitOn "\n\n" input)
 
 solve2 :: Text -> Int
 solve2 input = sum (countAll . fmap unpack . lines <$> splitOn "\n\n" input)
@@ -44,9 +33,9 @@ solve2 input = sum (countAll . fmap unpack . lines <$> splitOn "\n\n" input)
 main = do
     input <- readFile "inputs/day06.txt"
     runTestTT $ TestCase $ do
-        countUnique "abbc" @?= 3
-        countUnique "abbc\na" @?= 3
-        countUnique "abbc\nad" @?= 4
+        countUnique ["abbc"] @?= 3
+        countUnique ["abbc", "a"] @?= 3
+        countUnique ["abbc", "ad"] @?= 4
         solve input @?= 6703
         countAll ["abc"] @?= 3
         countAll ["abc", "a"] @?= 1
