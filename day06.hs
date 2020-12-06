@@ -12,17 +12,18 @@ import           Data.Text                      ( Text
                                                 )
 import           Data.Text.IO                   ( readFile )
 import           Data.List                      ( nub )
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
 
 countUnique :: [String] -> Int
-countUnique = length . nub . concat
+countUnique = Set.size . foldl1 Set.union . fmap Set.fromList
 
 countAll :: [String] -> Int
-countAll forms = length $ filter f $ nub $ concat forms
-    where f answ = all (elem answ) forms
+countAll = Set.size . foldl1 Set.intersection . fmap Set.fromList
 
 solve :: Text -> Int
 solve input = sum (countUnique . fmap unpack . lines <$> splitOn "\n\n" input)
