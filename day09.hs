@@ -16,10 +16,13 @@ import           Test.HUnit.Base                ( Test(TestCase)
                                                 )
 import           Data.List                      ( minimum
                                                 , maximum
-                                                , inits
                                                 , tails
                                                 )
 import           Data.Maybe                     ( catMaybes )
+import           Criterion.Main                 ( defaultMain
+                                                , bench
+                                                , whnf
+                                                )
 
 solve2 :: Int -> Text -> Int
 solve2 preambleLength input = minimum matchingList + maximum matchingList
@@ -33,12 +36,16 @@ firstContigiuousPrefixSum xs goal = head $ catMaybes ((`contigiuousPrefixSum` go
 
 contigiuousPrefixSum :: [Int] -> Int -> Maybe [Int]
 contigiuousPrefixSum [] _    = Nothing
-contigiuousPrefixSum xs goal = go (inits xs)
+contigiuousPrefixSum xs goal = go 0 [] xs
   where
-    go [] = Nothing
-    go (ys : rest) | sum ys == goal = Just ys
-                   | sum ys > goal  = Nothing
-                   | otherwise      = go rest
+    go _ _ [] = Nothing
+    go sum seen (x : rest) | newSum == goal = Just (reverse newSeen)
+                           | newSum > goal  = Nothing
+                           | otherwise      = go newSum newSeen rest
+      where
+        newSum  = sum + x
+        newSeen = x : seen
+
 
 solve :: Int -> Text -> Int
 solve preambleLength input = go numbers (drop preambleLength numbers)
@@ -80,3 +87,9 @@ main = do
         firstContigiuousPrefixSum [4, 1, 2, 5] 3 @?= [1, 2]
         solve2 5 exampleInput @?= 62
         solve2 25 input @?= 36981213
+    let numbers = parseInput input
+    let goal    = solve 25 input
+    defaultMain
+        [ bench "part 2"                          (whnf (solve2 25) input)
+        , bench "firstContigiuousPrefixSum alone" (whnf (firstContigiuousPrefixSum numbers) goal)
+        ]
