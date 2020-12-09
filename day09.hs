@@ -23,6 +23,7 @@ import           Criterion.Main                 ( defaultMain
                                                 , bench
                                                 , whnf
                                                 )
+import           Control.Monad                  ( guard )
 
 solve2 :: Int -> Text -> Int
 solve2 preambleLength input = minimum matchingList + maximum matchingList
@@ -32,20 +33,15 @@ solve2 preambleLength input = minimum matchingList + maximum matchingList
     matchingList = firstContigiuousPrefixSum numbers goal
 
 firstContigiuousPrefixSum :: [Int] -> Int -> [Int]
-firstContigiuousPrefixSum xs goal = head $ catMaybes ((`contigiuousPrefixSum` goal) <$> tails xs)
-
-contigiuousPrefixSum :: [Int] -> Int -> Maybe [Int]
-contigiuousPrefixSum [] _    = Nothing
-contigiuousPrefixSum xs goal = go 0 [] xs
+firstContigiuousPrefixSum xs goal = take (end - start) $ drop start xs
   where
-    go _ _ [] = Nothing
-    go sum seen (x : rest) | newSum == goal = Just (reverse newSeen)
-                           | newSum > goal  = Nothing
-                           | otherwise      = go newSum newSeen rest
-      where
-        newSum  = sum + x
-        newSeen = x : seen
-
+    prefixSumList = scanl (+) 0 xs
+    (start, end)  = head $ do
+        (i, x) <- zip [0 ..] prefixSumList
+        (j, y) <- zip [0 ..] prefixSumList
+        guard (i < j)
+        guard ((y - x) == goal)
+        return (i, j)
 
 solve :: Int -> Text -> Int
 solve preambleLength input = go numbers (drop preambleLength numbers)
@@ -75,11 +71,6 @@ main = do
         sumOfOthers [0, 9] 3 @?= True
         solve 5 exampleInput @?= 127
         solve 25 input @?= 258585477
-        contigiuousPrefixSum [1, 2] 3 @?= Just [1, 2]
-        contigiuousPrefixSum [1, 2, 5] 3 @?= Just [1, 2]
-        contigiuousPrefixSum [1, 3] 3 @?= Nothing
-        contigiuousPrefixSum [1, 4] 3 @?= Nothing
-        contigiuousPrefixSum [4, 1, 2] 3 @?= Nothing
         firstContigiuousPrefixSum [1, 2] 3 @?= [1, 2]
         firstContigiuousPrefixSum [1, 3] 3 @?= [3]
         firstContigiuousPrefixSum [4, 1, 2] 3 @?= [1, 2]
