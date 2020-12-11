@@ -11,7 +11,7 @@ import           Data.Text                      ( Text
                                                 , unpack
                                                 )
 import           Data.Text.IO                   ( readFile )
-import           Text.Parsec.Language           ( haskellDef )
+import           Text.Parsec.Language           ( emptyDef )
 import qualified Text.Parsec                   as P
 import qualified Text.Parsec.Token             as PT
 import qualified Text.Parsec.Char              as PC
@@ -39,63 +39,60 @@ type Coord = V2 Int
 type Direction = V2 Int
 type Grid = Arr.Array Coord Cell
 
-play :: Grid -> Grid
-play grid = newGrid
-  where
-    newGrid = grid Arr.// updates
-    bounds  = Arr.bounds grid
-    updates = cellUpdate <$> range bounds
-    cellUpdate i = (i, newType (grid Arr.! i) ((grid Arr.!) <$> adjacent i))
-    newType :: Cell -> [Cell] -> Cell
-    newType Empty neighbors | Occupied `notElem` neighbors = Occupied
-                            | otherwise                    = Empty
-    newType Occupied neighbors | length (filter (== Occupied) neighbors) >= 4 = Empty
-                               | otherwise = Occupied
-    newType cell _ = cell
-    adjacent :: Coord -> [Coord]
-    adjacent i = filter
-        (inRange bounds)
-        ((+ i) <$> [V2 (-1) (-1), V2 (-1) 0, V2 (-1) 1, V2 0 (-1), V2 0 1, V2 1 (-1), V2 1 0, V2 1 1])
+data Rules = Rules { adjecencyF :: Grid -> Coord -> [Coord]
+                   , overpopulationLimit :: Int
+                   }
 
-play2 :: Grid -> Grid
-play2 grid = newGrid
+play :: Rules -> Grid -> Grid
+play rules grid = newGrid
   where
     newGrid = grid Arr.// updates
     bounds  = Arr.bounds grid
     updates = cellUpdate <$> range bounds
-    cellUpdate i@(V2 y x) = (i, newType (grid Arr.! i) ((grid Arr.!) <$> visible i))
+    cellUpdate i = (i, newType (grid Arr.! i) ((grid Arr.!) <$> adjecencyF rules grid i))
     newType :: Cell -> [Cell] -> Cell
     newType Empty neighbors | Occupied `notElem` neighbors = Occupied
                             | otherwise                    = Empty
-    newType Occupied neighbors | length (filter (== Occupied) neighbors) >= 5 = Empty
+    newType Occupied neighbors | length (filter (== Occupied) neighbors) >= overpopulationLimit rules = Empty
                                | otherwise = Occupied
     newType cell _ = cell
-    directions = [V2 (-1) (-1), V2 (-1) 0, V2 (-1) 1, V2 0 (-1), V2 0 1, V2 1 (-1), V2 1 0, V2 1 1]
-    visible :: Coord -> [Coord]
-    visible i = filter (inRange bounds) (concatMap (firstSeatInDirection i) directions)
+
+
+allDirections :: [Direction]
+allDirections = [V2 (-1) (-1), V2 (-1) 0, V2 (-1) 1, V2 0 (-1), V2 0 1, V2 1 (-1), V2 1 0, V2 1 1]
+
+immediateNeighbors :: Grid -> Coord -> [Coord]
+immediateNeighbors grid i = filter (inRange bounds) ((+ i) <$> allDirections) where bounds = Arr.bounds grid
+
+visibleNeighbors :: Grid -> Coord -> [Coord]
+visibleNeighbors grid i = filter (inRange bounds) (concatMap (firstSeatInDirection i) allDirections)
+  where
+    bounds = Arr.bounds grid
     firstSeatInDirection :: Coord -> Direction -> [Coord]
     firstSeatInDirection i dir | not (inRange bounds newI)  = []
                                | (grid Arr.! newI) == Floor = firstSeatInDirection newI dir
                                | otherwise                  = [newI]
         where newI = i + dir
 
-solve :: Text -> Int
-solve input = occupiedSeats firstRepeatingState
+countStableOccupiedSeats :: Rules -> Grid -> Int
+countStableOccupiedSeats rules grid = occupiedSeats firstRepeatingState
   where
     occupiedSeats :: Grid -> Int
     occupiedSeats grid = length $ filter (== Occupied) ((grid Arr.!) <$> range (Arr.bounds grid))
     firstRepeatingState = fst $ head $ filter (uncurry (==)) $ zip allStates (tail allStates)
-    allStates           = iterate play grid
-    grid                = createGrid $ parseInput input
+    allStates           = iterate (play rules) grid
+
+solve :: Text -> Int
+solve input = countStableOccupiedSeats rules grid
+  where
+    grid  = createGrid $ parseInput input
+    rules = Rules { adjecencyF = immediateNeighbors, overpopulationLimit = 4 }
 
 solve2 :: Text -> Int
-solve2 input = occupiedSeats firstRepeatingState
+solve2 input = countStableOccupiedSeats rules grid
   where
-    occupiedSeats :: Grid -> Int
-    occupiedSeats grid = length $ filter (== Occupied) ((grid Arr.!) <$> range (Arr.bounds grid))
-    firstRepeatingState = fst $ head $ filter (uncurry (==)) $ zip allStates (tail allStates)
-    allStates           = iterate play2 grid
-    grid                = createGrid $ parseInput input
+    grid  = createGrid $ parseInput input
+    rules = Rules { adjecencyF = visibleNeighbors, overpopulationLimit = 5 }
 
 createGrid :: [[Cell]] -> Grid
 createGrid rows = Arr.listArray bounds $ concat rows
@@ -106,8 +103,7 @@ parseInput input = readEithers (parseLine <$> lines input)
   where
     readEithers = either (throw . PatternMatchFail . show) id . sequenceA
     parseLine   = P.parse parser "" . unpack
-    lexer       = PT.makeTokenParser haskellDef
-    integer     = PT.integer lexer
+    lexer       = PT.makeTokenParser emptyDef
     symbol      = PT.symbol lexer
     parser      = P.many1 (readCell <$> (symbol "#" P.<|> symbol "." P.<|> symbol "L"))
     readCell "#" = Occupied
@@ -129,7 +125,6 @@ showGrid grid = unlines rows
 main = do
     exampleInput <- readFile "inputs/day11_example.txt"
     input        <- readFile "inputs/day11.txt"
-    putStrLn $ showGrid $ play2 $ play2 $ createGrid $ parseInput exampleInput
     runTestTT $ TestCase $ do
         createGrid (parseInput exampleInput) == createGrid (parseInput exampleInput) @?= True
         solve exampleInput @?= 37
