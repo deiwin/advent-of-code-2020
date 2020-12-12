@@ -41,15 +41,19 @@ data State = State { wayPointRel :: Coord
                    , coord :: Coord
                    } deriving (Show, Eq)
 
+cardinalVector :: CardinalDirection -> V2 Int
+cardinalVector = \case
+    North -> V2 1 0
+    South -> V2 (-1) 0
+    East  -> V2 0 1
+    West  -> V2 0 (-1)
+
 move :: State -> Instruction -> State
 move state instruction = case direction instruction of
-    C North   -> state { wayPointRel = wayPointRel state + V2 (amount instruction) 0 }
-    C South   -> state { wayPointRel = wayPointRel state + V2 (-1 * amount instruction) 0 }
-    C East    -> state { wayPointRel = wayPointRel state + V2 0 (amount instruction) }
-    C West    -> state { wayPointRel = wayPointRel state + V2 0 (-1 * amount instruction) }
-    Forward -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
-    DLeft   -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
-    DRight  -> state { wayPointRel = iterate perp (wayPointRel state) !! (amount instruction `div` 90) }
+    C carDir -> state { wayPointRel = wayPointRel state + (cardinalVector carDir ^* amount instruction) }
+    Forward  -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
+    DLeft    -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
+    DRight   -> state { wayPointRel = iterate perp (wayPointRel state) !! (amount instruction `div` 90) }
 
 solve :: Text -> Int
 solve input = manhattan $ coord finalState
