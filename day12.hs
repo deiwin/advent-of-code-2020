@@ -2,7 +2,6 @@
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RecordWildCards #-}
 
 import           Prelude                 hiding ( readFile
                                                 , lines
@@ -30,7 +29,6 @@ import           Linear.V2                      ( V2(..)
                                                 )
 import           Linear.Vector                  ( (^*) )
 
-data PolarDirection = PNorth | PEast | PSouth | PWest deriving (Show, Eq)
 data Direction = North | East | South | West | DLeft | DRight | Forward deriving (Show, Eq)
 data Instruction = Instruction { direction :: Direction
                                , amount :: Int
@@ -42,19 +40,14 @@ data State = State { wayPointRel :: Coord
                    } deriving (Show, Eq)
 
 move :: State -> Instruction -> State
-move state instruction =
-    let moveNorth = state { wayPointRel = wayPointRel state + V2 (amount instruction) 0 }
-        moveSouth = state { wayPointRel = wayPointRel state + V2 (-1 * amount instruction) 0 }
-        moveEast  = state { wayPointRel = wayPointRel state + V2 0 (amount instruction) }
-        moveWest  = state { wayPointRel = wayPointRel state + V2 0 (-1 * amount instruction) }
-    in  case direction instruction of
-            North   -> moveNorth
-            South   -> moveSouth
-            East    -> moveEast
-            West    -> moveWest
-            Forward -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
-            DLeft   -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
-            DRight  -> state { wayPointRel = iterate perp (wayPointRel state) !! ((amount instruction) `div` 90) }
+move state instruction = case direction instruction of
+    North   -> state { wayPointRel = wayPointRel state + V2 (amount instruction) 0 }
+    South   -> state { wayPointRel = wayPointRel state + V2 (-1 * amount instruction) 0 }
+    East    -> state { wayPointRel = wayPointRel state + V2 0 (amount instruction) }
+    West    -> state { wayPointRel = wayPointRel state + V2 0 (-1 * amount instruction) }
+    Forward -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
+    DLeft   -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
+    DRight  -> state { wayPointRel = iterate perp (wayPointRel state) !! (amount instruction `div` 90) }
 
 solve :: Text -> Int
 solve input = manhattan $ coord finalState
@@ -62,15 +55,6 @@ solve input = manhattan $ coord finalState
     instructions = parseInput input
     initialState = State { wayPointRel = V2 1 10, coord = V2 0 0 }
     finalState   = foldl' move initialState instructions
-    -- initialState = State { facingDirection = PEast, coord = polarMovementCoord }
-    -- finalState   = foldl' move initialState dirMovement
-    -- polarMovementCoord = foldl' (+) (V2 0 0) (moveVector <$> polarMovement)
-    -- moveVector instruction = dirVector (direction instruction) ^* amount instruction
-    -- (polarMovement, dirMovement) = partition ((`elem` [North, South, East, West]). direction) instructions
-    -- dirVector North = V2 1 0
-    -- dirVector South = V2 (-1) 0
-    -- dirVector East = V2 0 1
-    -- dirVector West = V2 0 (-1)
     manhattan (V2 y x) = abs y + abs x
 
 parseInput :: Text -> [Instruction]
