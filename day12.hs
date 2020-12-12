@@ -52,8 +52,9 @@ move :: State -> Instruction -> State
 move state instruction = case direction instruction of
     C carDir -> state { wayPointRel = wayPointRel state + (cardinalVector carDir ^* amount instruction) }
     Forward  -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
-    DLeft    -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
-    DRight   -> state { wayPointRel = iterate perp (wayPointRel state) !! (amount instruction `div` 90) }
+    DLeft    -> state { wayPointRel = clockwiseRotatedWayPointRel (360 - amount instruction) }
+    DRight   -> state { wayPointRel = clockwiseRotatedWayPointRel (amount instruction) }
+    where clockwiseRotatedWayPointRel degrees = iterate perp (wayPointRel state) !! (degrees `div` 90)
 
 solve :: Text -> Int
 solve input = manhattan $ coord finalState
