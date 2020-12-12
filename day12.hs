@@ -31,7 +31,8 @@ import           Linear.V2                      ( V2(..)
 import           Linear.Vector                  ( (^*) )
 
 data CardinalDirection = North | East | South | West deriving (Show, Eq)
-data Direction = C CardinalDirection | DLeft | DRight | Forward deriving (Show, Eq)
+data Rotation = Clockwise | CounterClockwise deriving (Show, Eq)
+data Direction = C CardinalDirection | R Rotation | Forward deriving (Show, Eq)
 data Instruction = Instruction { direction :: Direction
                                , amount :: Int
                                } deriving (Show, Eq)
@@ -48,13 +49,19 @@ cardinalVector = \case
     East  -> V2 0 1
     West  -> V2 0 (-1)
 
+clockwiseRotation :: Rotation -> Int -> Int
+clockwiseRotation Clockwise        x = x
+clockwiseRotation CounterClockwise x = 360 - (x `mod` 360)
+
 move :: State -> Instruction -> State
-move state instruction = case direction instruction of
-    C carDir -> state { wayPointRel = wayPointRel state + (cardinalVector carDir ^* amount instruction) }
-    Forward  -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
-    DLeft    -> state { wayPointRel = clockwiseRotatedWayPointRel (360 - amount instruction) }
-    DRight   -> state { wayPointRel = clockwiseRotatedWayPointRel (amount instruction) }
-    where clockwiseRotatedWayPointRel degrees = iterate perp (wayPointRel state) !! (degrees `div` 90)
+move state instruction = case direction of
+    C carDir   -> state { wayPointRel = wayPointRel + (cardinalVector carDir ^* amount) }
+    R rotation -> state { wayPointRel = clockwiseRotatedWayPointRel (clockwiseRotation rotation amount) }
+    Forward    -> state { coord = coord + (wayPointRel ^* amount) }
+  where
+    State { wayPointRel = wayPointRel, coord = coord }     = state
+    Instruction { direction = direction, amount = amount } = instruction
+    clockwiseRotatedWayPointRel degrees = iterate perp wayPointRel !! (degrees `div` 90)
 
 solve :: Text -> Int
 solve input = manhattan $ coord finalState
@@ -72,8 +79,8 @@ parseInput input = readInstruction . unpack <$> lines input
     readDirection 'S' = C South
     readDirection 'E' = C East
     readDirection 'W' = C West
-    readDirection 'L' = DLeft
-    readDirection 'R' = DRight
+    readDirection 'L' = R CounterClockwise
+    readDirection 'R' = R Clockwise
     readDirection 'F' = Forward
 
 main = do
