@@ -2,6 +2,7 @@
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 
 import           Prelude                 hiding ( readFile
                                                 , lines
@@ -29,7 +30,8 @@ import           Linear.V2                      ( V2(..)
                                                 )
 import           Linear.Vector                  ( (^*) )
 
-data Direction = North | East | South | West | DLeft | DRight | Forward deriving (Show, Eq)
+data CardinalDirection = North | East | South | West deriving (Show, Eq)
+data Direction = C CardinalDirection | DLeft | DRight | Forward deriving (Show, Eq)
 data Instruction = Instruction { direction :: Direction
                                , amount :: Int
                                } deriving (Show, Eq)
@@ -41,10 +43,10 @@ data State = State { wayPointRel :: Coord
 
 move :: State -> Instruction -> State
 move state instruction = case direction instruction of
-    North   -> state { wayPointRel = wayPointRel state + V2 (amount instruction) 0 }
-    South   -> state { wayPointRel = wayPointRel state + V2 (-1 * amount instruction) 0 }
-    East    -> state { wayPointRel = wayPointRel state + V2 0 (amount instruction) }
-    West    -> state { wayPointRel = wayPointRel state + V2 0 (-1 * amount instruction) }
+    C North   -> state { wayPointRel = wayPointRel state + V2 (amount instruction) 0 }
+    C South   -> state { wayPointRel = wayPointRel state + V2 (-1 * amount instruction) 0 }
+    C East    -> state { wayPointRel = wayPointRel state + V2 0 (amount instruction) }
+    C West    -> state { wayPointRel = wayPointRel state + V2 0 (-1 * amount instruction) }
     Forward -> state { coord = coord state + (wayPointRel state ^* amount instruction) }
     DLeft   -> state { wayPointRel = iterate perp (wayPointRel state) !! ((360 - amount instruction) `div` 90) }
     DRight  -> state { wayPointRel = iterate perp (wayPointRel state) !! (amount instruction `div` 90) }
@@ -61,10 +63,10 @@ parseInput :: Text -> [Instruction]
 parseInput input = readInstruction . unpack <$> lines input
   where
     readInstruction (d : a) = Instruction { direction = readDirection d, amount = read a }
-    readDirection 'N' = North
-    readDirection 'S' = South
-    readDirection 'E' = East
-    readDirection 'W' = West
+    readDirection 'N' = C North
+    readDirection 'S' = C South
+    readDirection 'E' = C East
+    readDirection 'W' = C West
     readDirection 'L' = DLeft
     readDirection 'R' = DRight
     readDirection 'F' = Forward
