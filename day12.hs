@@ -38,9 +38,9 @@ data Instruction = Instruction { direction :: Direction
                                } deriving (Show, Eq)
 
 type Coord = V2 Int
-data State = State { wayPointRel :: Coord
-                   , coord :: Coord
-                   } deriving (Show, Eq)
+data State2 = State2 { wayPointRel :: Coord
+                     , coord2 :: Coord
+                     } deriving (Show, Eq)
 
 cardinalVector :: CardinalDirection -> V2 Int
 cardinalVector = \case
@@ -53,22 +53,22 @@ clockwiseRotation :: Rotation -> Int -> Int
 clockwiseRotation Clockwise        x = x
 clockwiseRotation CounterClockwise x = 360 - (x `mod` 360)
 
-move :: State -> Instruction -> State
-move state instruction = case direction of
+move2 :: State2 -> Instruction -> State2
+move2 state instruction = case direction of
     C carDir   -> state { wayPointRel = wayPointRel + (cardinalVector carDir ^* amount) }
     R rotation -> state { wayPointRel = clockwiseRotatedWayPointRel (clockwiseRotation rotation amount) }
-    Forward    -> state { coord = coord + (wayPointRel ^* amount) }
+    Forward    -> state { coord2 = coord2 + (wayPointRel ^* amount) }
   where
-    State { wayPointRel = wayPointRel, coord = coord }     = state
+    State2 { wayPointRel = wayPointRel, coord2 = coord2 }  = state
     Instruction { direction = direction, amount = amount } = instruction
     clockwiseRotatedWayPointRel degrees = iterate perp wayPointRel !! (degrees `div` 90)
 
-solve :: Text -> Int
-solve input = manhattan $ coord finalState
+solve2 :: Text -> Int
+solve2 input = manhattan $ coord2 finalState
   where
     instructions = parseInput input
-    initialState = State { wayPointRel = V2 1 10, coord = V2 0 0 }
-    finalState   = foldl' move initialState instructions
+    initialState = State2 { wayPointRel = V2 1 10, coord2 = V2 0 0 }
+    finalState   = foldl' move2 initialState instructions
     manhattan (V2 y x) = abs y + abs x
 
 parseInput :: Text -> [Instruction]
@@ -87,6 +87,6 @@ main = do
     exampleInput <- readFile "inputs/day12_example.txt"
     input        <- readFile "inputs/day12.txt"
     runTestTT $ TestCase $ do
-        solve exampleInput @?= 286
+        solve2 exampleInput @?= 286
         V2 1 0 ^* 8 @?= V2 8 0
-        solve input @?= 39140
+        solve2 input @?= 39140
