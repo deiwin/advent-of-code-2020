@@ -19,16 +19,17 @@ import           Test.HUnit.Base                ( Test(TestCase)
 import           Data.List                      ( minimumBy
                                                 , maximumBy
                                                 , foldl1'
+                                                , iterate
                                                 )
 import           Data.Ord                       ( comparing )
 import           Control.Arrow                  ( second )
 
 slowEarliestConsecutive :: [(Int, Int)] -> [Int]
-slowEarliestConsecutive goals = go (step - firstTime) step
+slowEarliestConsecutive goals = filter f $ iterate (+ step) start
   where
-    (firstTime, step) = maximumBy (comparing snd) goals
-    go time step | all (uncurry (==) . second (time `modInverse`)) goals = time : go (time + step) step
-                 | otherwise = go (time + step) step
+    (diff, step) = maximumBy (comparing snd) goals
+    start        = step - diff
+    f time = all (uncurry (==) . second (time `modInverse`)) goals
 
 reduce :: (Int, Int) -> (Int, Int) -> (Int, Int)
 reduce a b = (step - first, step)
