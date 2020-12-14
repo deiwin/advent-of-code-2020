@@ -3,15 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards #-}
 
-import           Prelude                 hiding ( readFile
-                                                , lines
-                                                )
+import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text
-                                                , lines
                                                 , unpack
-                                                , splitOn
                                                 , strip
                                                 )
 import           Data.Text.IO                   ( readFile )
@@ -25,36 +20,32 @@ import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
-import           Data.List                      ( minimumBy
-                                                , maximumBy
-                                                , foldl1'
-                                                , foldl'
-                                                )
-
-import           Data.Vector.Unboxed            ( Vector )
-import qualified Data.Vector.Unboxed           as V
+import           Data.List                      ( foldl' )
 import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as M
-import           Control.Arrow                  ( second )
+import           Data.IntSet                    ( IntSet )
+import qualified Data.IntSet                   as S
 import           Data.Bits                      ( setBit
                                                 , clearBit
                                                 )
 
-data Instruction = UpdateMask [(Int, Int)] | WriteMemory (Int, Int) deriving (Eq, Show)
+data Instruction = UpdateMask [(Int, Char)] | WriteMemory (Int, Int) deriving (Eq, Show)
 type Program = [Instruction]
 type Memory = IntMap Int
 data State = State { memory :: Memory
-                   , mask :: Int -> Int
+                   , valueMask :: Int -> Int
+                   , memAddressMask :: Int -> [Int]
                    }
 
 runInstruction :: State -> Instruction -> State
-runInstruction state (UpdateMask bits) = state { mask = flip (foldl' f) bits }
+runInstruction state (UpdateMask bits) = state { valueMask = flip (foldl' f) bits }
   where
     f x (ix, bit) = case bit of
-        0 -> x `clearBit` ix
-        1 -> x `setBit` ix
+        '0' -> x `clearBit` ix
+        '1' -> x `setBit` ix
+        _   -> x
 runInstruction state (WriteMemory (ix, val)) = state { memory = newMemory }
-    where newMemory = M.insert ix (mask state val) (memory state)
+    where newMemory = M.insert ix (valueMask state val) (memory state)
 
 runProgram :: State -> [Instruction] -> State
 runProgram = foldl' runInstruction
@@ -62,8 +53,30 @@ runProgram = foldl' runInstruction
 solve :: Text -> Int
 solve input = M.foldr' (+) 0 (memory finalState)
   where
-    initialState = State { memory = M.empty, mask = id }
+    initialState = State { memory = M.empty, valueMask = id, memAddressMask = pure }
     finalState   = runProgram initialState $ parseInput input
+
+runInstruction2 :: State -> Instruction -> State
+runInstruction2 state (UpdateMask bits) = state { memAddressMask = newMemAddressMask }
+  where
+    newMemAddressMask x = S.toList $ foldl' f (S.singleton x) bits
+    f :: IntSet -> (Int, Char) -> IntSet
+    f s (ix, bit) = case bit of
+        '1' -> S.map (`setBit` ix) s
+        'X' -> S.foldl' (floating ix) S.empty s
+        _   -> s
+    floating :: Int -> IntSet -> Int -> IntSet
+    floating ix s x = S.insert (x `clearBit` ix) $ S.insert (x `setBit` ix) s
+runInstruction2 state (WriteMemory (ix, val)) = state { memory = newMemory }
+  where
+    indices   = memAddressMask state ix
+    newMemory = foldl' (\m ix -> M.insert ix val m) (memory state) indices
+
+solve2 :: Text -> Int
+solve2 input = M.foldr' (+) 0 (memory finalState)
+  where
+    initialState = State { memory = M.empty, valueMask = id, memAddressMask = pure }
+    finalState   = foldl' runInstruction2 initialState $ parseInput input
 
 parseInput :: Text -> [Instruction]
 parseInput input = readEither $ parse input
@@ -74,7 +87,7 @@ parseInput input = readEither $ parse input
     maskParser = do
         _    <- PC.string "mask = "
         mask <- P.many1 (PC.oneOf "X01")
-        let instruction = fmap (second (read . pure)) $ filter ((/= 'X') . snd) $ zip [0 ..] $ reverse mask
+        let instruction = zip [0 ..] $ reverse mask
         return (UpdateMask instruction)
     memParser = do
         ix  <- PC.string "mem[" *> (read <$> P.many1 PC.digit) <* PC.string "] = "
@@ -82,12 +95,11 @@ parseInput input = readEither $ parse input
         return (WriteMemory (ix, val))
 
 main = do
-    exampleInput <- readFile "inputs/day14_example.txt"
-    input        <- readFile "inputs/day14.txt"
-    -- print $ parseInput exampleInput
-    -- print $ parseInput input
+    exampleInput  <- readFile "inputs/day14_example.txt"
+    input         <- readFile "inputs/day14.txt"
+    exampleInput2 <- readFile "inputs/day14_example2.txt"
     runTestTT $ TestCase $ do
-        parseInput exampleInput
-            @?= [UpdateMask [(1, 0), (6, 1)], WriteMemory (8, 11), WriteMemory (7, 101), WriteMemory (8, 0)]
         solve exampleInput @?= 165
         solve input @?= 15514035145260
+        solve2 exampleInput2 @?= 208
+        solve2 input @?= 3926790061594
