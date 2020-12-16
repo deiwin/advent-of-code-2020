@@ -57,17 +57,17 @@ solve2 input = product departureFields
     validTickets    = filter (validTicket (constraintList document)) $ nearbyTickets document
     fieldNames = (possibleNames (constraintList document) <$> validTickets)
                     & foldl1' (zipWith S.intersection)
-                    & reduce
+                    & converge reduce
                     & fmap (head . S.toList)
     reduce :: [Set String] -> [Set String]
-    reduce ss | newSs == ss = ss
-              | otherwise   = reduce newSs
+    reduce ss = f <$> ss
       where
-        newSs      = f <$> ss
         fixedNames = foldl1' S.union $ filter (\s -> S.size s == 1) ss
         f s | S.size s == 1 = s
             | otherwise     = S.difference s fixedNames
 
+converge :: Eq a => (a -> a) -> a -> a
+converge = until =<< ((==) =<<)
 
 parse :: Text -> Document
 parse input = case P.parse parser "" input of
