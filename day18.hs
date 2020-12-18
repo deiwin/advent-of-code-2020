@@ -37,9 +37,8 @@ parse input = case P.parse parser "" input of
     parser = P.endBy expr P.eol
     expr = makeExprParser term table P.<?> "expression"
     term = parens expr P.<|> integer P.<?> "term"
-    table = [ [ binary  "*"  (*)
-              , binary  "+"  (+)
-              ]
+    table = [ [ binary  "+"  (+) ]
+            , [ binary  "*"  (*) ]
             ]
 
     binary  name f = InfixL  (f <$ symbol name)
@@ -57,8 +56,8 @@ main = do
     -- exampleInput <- readFile "inputs/day18_example.txt"
     print $ parse input
     runTestTT $ TestCase $ do
-        solve "1 + 2 * 3 + 4 * 5 + 6\n" @?= 71
+        solve "1 + 2 * 3 + 4 * 5 + 6\n" @?= 231
         solve "1 + (2 * 3) + (4 * (5 + 6))\n" @?= 51
-        solve "2 * 3 + (4 * 5)\n" @?= 26
-        solve "5 + (8 * 3 + 9 + 3 * 4 * 3)\n" @?= 437
-        solve input @?= 12918250417632
+        solve "2 * 3 + (4 * 5)\n" @?= 46
+        solve "5 + (8 * 3 + 9 + 3 * 4 * 3)\n" @?= 1445
+        solve input @?= 171259538712010
