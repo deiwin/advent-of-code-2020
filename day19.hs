@@ -53,9 +53,8 @@ parseMessage rules ruleIx input = case P.parse parser "" input of
     parserFor ix = go (rules IM.! ix)
       where
         go = \case
-            C c        -> P.try (return <$> P.char c)
-            R [rs]     -> ruleList rs
-            R [as, bs] -> P.try (ruleList as) P.<|> ruleList bs
+            C c   -> P.try (return <$> P.char c)
+            R rss -> foldl1' (P.<|>) (P.try . ruleList <$> rss)
         ruleList rs = concat <$> traverse parserFor rs
 
 parse :: Text -> (IntMap Rule, [String])
