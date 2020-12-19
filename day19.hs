@@ -11,9 +11,6 @@ import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
-import           Debug.Trace                    ( traceShow
-                                                , traceShowId
-                                                )
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
@@ -22,18 +19,8 @@ import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as IM
 import           Control.Applicative            ( empty )
 import           Data.Void                      ( Void )
-import           Data.List                      ( foldl1'
-                                                , foldl'
-                                                , isPrefixOf
-                                                , iterate
-                                                )
-import           Data.Ord                       ( comparing )
 import           Data.Function                  ( (&) )
-import           Data.Maybe                     ( isJust
-                                                , catMaybes
-                                                )
-import           Control.Monad                  ( guard )
-import           Data.Either                    ( rights )
+import           Data.Maybe                     ( catMaybes )
 import           Data.Foldable                  ( asum )
 
 type Parser = P.Parsec Void Text
@@ -44,6 +31,15 @@ solve input = length $ catMaybes parsedMessages
   where
     (rules, messages) = parse input
     parsedMessages    = parseMessage rules 0 <$> messages
+
+solve2 :: Text -> Int
+solve2 input = length $ catMaybes parsedMessages
+  where
+    (rules, messages) = parse input
+    newRules          = rules
+                        & IM.insert 8 (R [[42], [42, 8]])
+                        & IM.insert 11 (R [[42, 31], [42, 11, 31]])
+    parsedMessages    = parseMessage newRules 0 <$> messages
 
 parseMessage :: IntMap Rule -> Int -> String -> Maybe String
 parseMessage rules ruleIx input = toMaybe $ R.readP_to_S parser input
@@ -86,9 +82,11 @@ parse input = case P.parse parser "" input of
     singleEol = P.eol <* P.notFollowedBy P.eol
 
 main = do
-    input        <- readFile "inputs/day19.txt"
-    exampleInput <- readFile "inputs/day19_example.txt"
-    -- print $ solve exampleInput
+    input         <- readFile "inputs/day19.txt"
+    exampleInput  <- readFile "inputs/day19_example.txt"
+    exampleInput2 <- readFile "inputs/day19_example2.txt"
     runTestTT $ TestCase $ do
         solve exampleInput @?= 2
         solve input @?= 213
+        solve2 exampleInput2 @?= 12
+        solve2 input @?= 325
