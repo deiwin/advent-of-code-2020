@@ -3,9 +3,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 
 import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text )
+import qualified Data.Text                     as T
 import           Data.Text.IO                   ( readFile )
 import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
