@@ -1,7 +1,6 @@
 #!/usr/bin/env stack
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 
@@ -12,28 +11,14 @@ import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
-import           Criterion.Main                 ( defaultMain
-                                                , bench
-                                                , whnf
-                                                )
 import           Debug.Trace                    ( traceShow
                                                 , traceShowId
                                                 )
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as S
-import           Data.IntSet                    ( IntSet )
-import qualified Data.IntSet                   as IS
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as M
 import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as IM
-import           Data.Ix                        ( range )
-import           Linear.V2                      ( V2(..) )
-import           Linear.V3                      ( V3(..) )
-import           Linear.V4                      ( V4(..) )
 import           Control.Applicative            ( empty )
 import           Data.Void                      ( Void )
 import           Data.List                      ( foldl1'
@@ -43,38 +28,45 @@ import           Data.List                      ( foldl1'
                                                 )
 import           Data.Ord                       ( comparing )
 import           Data.Function                  ( (&) )
-import           Control.Arrow                  ( (>>>)
-                                                , second
-                                                )
 import           Data.Maybe                     ( isJust
                                                 , catMaybes
                                                 )
 import           Control.Monad                  ( guard )
+import           Data.Either                    ( rights )
 
 type Parser = P.Parsec Void Text
 data Rule = C Char | R [[Int]] deriving (Show, Eq)
 
 solve :: Text -> Int
-solve input = length $ catMaybes $ parse input
+solve input = length $ rights parsedMessages
+  where
+    (rules, messages) = parse input
+    parsedMessages = parseMessage rules 0 <$> messages
 
-parse :: Text -> [Maybe String]
+parseMessage :: IntMap Rule -> Int -> String -> Either String String
+parseMessage rules ruleIx input = case P.parse parser "" input of
+    Left  bundle -> Left (P.errorBundlePretty (bundle :: P.ParseErrorBundle String Void))
+    Right result -> Right result
+  where
+    parser = parserFor ruleIx <* P.notFollowedBy P.letterChar
+    parserFor :: Int -> P.Parsec Void String String
+    parserFor ix = go (rules IM.! ix)
+      where
+        go = \case
+            C c        -> P.try (return <$> P.char c)
+            R [rs]     -> ruleList rs
+            R [as, bs] -> P.try (ruleList as) P.<|> ruleList bs
+        ruleList rs = concat <$> traverse parserFor rs
+
+parse :: Text -> (IntMap Rule, [String])
 parse input = case P.parse parser "" input of
     Left  bundle -> error (P.errorBundlePretty (bundle :: P.ParseErrorBundle Text Void))
     Right result -> result
   where
     parser = do
-        rules <- IM.fromList <$> rules <* P.space1
-        let newParser = parserFor rules 0 <* P.notFollowedBy P.letterChar
-        ((Just <$> P.try newParser) P.<|> (const Nothing <$> P.skipSome P.letterChar)) `P.endBy1` singleEol
-    parserFor :: IntMap Rule -> Int -> Parser String
-    parserFor m ix = go (m IM.! ix)
-      where
-        rule = m IM.! ix
-        go   = \case
-            C c        -> P.try (return <$> P.char c)
-            R [rs]     -> ruleList rs
-            R [as, bs] -> P.try (ruleList as) P.<|> ruleList bs
-        ruleList rs = concat <$> traverse (parserFor m) rs
+        rules    <- IM.fromList <$> rules <* P.space1
+        messages <- P.some P.letterChar `P.endBy1` singleEol
+        return (rules, messages)
     rules = rule `P.sepBy1` P.try singleEol
     rule  = do
         key  <- number <* symbol ":"
@@ -97,5 +89,3 @@ main = do
     runTestTT $ TestCase $ do
         solve exampleInput @?= 2
         solve input @?= 213
-        1 @?= 1
-        1 @?= 1
