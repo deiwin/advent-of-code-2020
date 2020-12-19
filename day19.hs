@@ -33,6 +33,7 @@ import           Data.Maybe                     ( isJust
                                                 )
 import           Control.Monad                  ( guard )
 import           Data.Either                    ( rights )
+import           Data.Foldable                  ( asum )
 
 type Parser = P.Parsec Void Text
 data Rule = C Char | R [[Int]] deriving (Show, Eq)
@@ -54,7 +55,7 @@ parseMessage rules ruleIx input = case P.parse parser "" input of
       where
         go = \case
             C c   -> P.try (return <$> P.char c)
-            R rss -> foldl1' (P.<|>) (P.try . ruleList <$> rss)
+            R rss -> asum (P.try . ruleList <$> rss)
         ruleList rs = concat <$> traverse parserFor rs
 
 parse :: Text -> (IntMap Rule, [String])
