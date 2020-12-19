@@ -17,6 +17,7 @@ import           Debug.Trace                    ( traceShow
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
+import qualified Text.ParserCombinators.ReadP  as R
 import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as IM
 import           Control.Applicative            ( empty )
@@ -39,23 +40,24 @@ type Parser = P.Parsec Void Text
 data Rule = C Char | R [[Int]] deriving (Show, Eq)
 
 solve :: Text -> Int
-solve input = length $ rights parsedMessages
+solve input = length $ catMaybes parsedMessages
   where
     (rules, messages) = parse input
-    parsedMessages = parseMessage rules 0 <$> messages
+    parsedMessages    = parseMessage rules 0 <$> messages
 
-parseMessage :: IntMap Rule -> Int -> String -> Either String String
-parseMessage rules ruleIx input = case P.parse parser "" input of
-    Left  bundle -> Left (P.errorBundlePretty (bundle :: P.ParseErrorBundle String Void))
-    Right result -> Right result
+parseMessage :: IntMap Rule -> Int -> String -> Maybe String
+parseMessage rules ruleIx input = toMaybe $ R.readP_to_S parser input
   where
-    parser = parserFor ruleIx <* P.notFollowedBy P.letterChar
-    parserFor :: Int -> P.Parsec Void String String
+    parser  = parserFor ruleIx <* R.eof
+    toMaybe = \case
+        [(s, "")] -> Just s
+        _         -> Nothing
+    parserFor :: Int -> R.ReadP String
     parserFor ix = go (rules IM.! ix)
       where
         go = \case
-            C c   -> P.try (return <$> P.char c)
-            R rss -> asum (P.try . ruleList <$> rss)
+            C c   -> return <$> R.char c
+            R rss -> asum (ruleList <$> rss)
         ruleList rs = concat <$> traverse parserFor rs
 
 parse :: Text -> (IntMap Rule, [String])
@@ -86,6 +88,7 @@ parse input = case P.parse parser "" input of
 main = do
     input        <- readFile "inputs/day19.txt"
     exampleInput <- readFile "inputs/day19_example.txt"
+    -- print $ solve exampleInput
     runTestTT $ TestCase $ do
         solve exampleInput @?= 2
         solve input @?= 213
