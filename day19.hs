@@ -49,12 +49,10 @@ parseMessage rules ruleIx input = toMaybe $ R.readP_to_S parser input
         [(s, "")] -> Just s
         _         -> Nothing
     parserFor :: Int -> R.ReadP String
-    parserFor ix = go (rules IM.! ix)
-      where
-        go = \case
-            C c   -> return <$> R.char c
-            R rss -> asum (ruleList <$> rss)
-        ruleList rs = concat <$> traverse parserFor rs
+    parserFor ix = case rules IM.! ix of
+        C c   -> return <$> R.char c
+        R rss -> asum (ruleList <$> rss)
+        where ruleList rs = concat <$> traverse parserFor rs
 
 parse :: Text -> (IntMap Rule, [String])
 parse input = case P.parse parser "" input of
