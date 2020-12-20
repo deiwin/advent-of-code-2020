@@ -47,7 +47,9 @@ import           Data.List                      ( foldl1'
                                                 )
 import           Data.Ord                       ( comparing )
 import           Data.Function                  ( (&) )
-import           Control.Arrow                  ( (>>>), second )
+import           Control.Arrow                  ( (>>>)
+                                                , second
+                                                )
 import           Data.Maybe                     ( isJust
                                                 , catMaybes
                                                 )
@@ -64,38 +66,42 @@ botBorder = (!! 2) . borders
 leftBorder = (!! 3) . borders
 
 solve :: Text -> _
-solve input = product $ fmap fst $ filter ((== 2) . snd) $ zip (tileID <$> ts) (length . filter (not . null) . matches ts <$> ts)
-    where
-        ts = parse input
+solve input = zip (tileID <$> ts) (matchingSideCount <$> ts)
+              & filter ((== 2) . snd)
+              & fmap fst
+              & product
+  where
+    ts                = parse input
+    matchingSideCount = length . filter (not . null) . matches ts
 
 matches :: [Tile] -> Tile -> [[Tile]]
 matches ts t = [topMatches, rightMatches, botMatches, leftMatches]
-    where
-        leftMatches = filter ((== reverse (leftBorder t)) . rightBorder) potentialMatches
-        botMatches = filter ((== reverse (botBorder t)) . topBorder) potentialMatches
-        rightMatches = filter ((== reverse (rightBorder t)) . leftBorder) potentialMatches
-        topMatches = filter ((== reverse (topBorder t)) . botBorder) potentialMatches
-        potentialMatches = concatMap allPermutations otherTiles
-        curID = tileID t
-        [top,right,bot,left] = borders t
-        otherTiles = filter ((/= curID) . tileID) ts
+  where
+    leftMatches             = filter ((== reverse (leftBorder t)) . rightBorder) potentialMatches
+    botMatches              = filter ((== reverse (botBorder t)) . topBorder) potentialMatches
+    rightMatches            = filter ((== reverse (rightBorder t)) . leftBorder) potentialMatches
+    topMatches              = filter ((== reverse (topBorder t)) . botBorder) potentialMatches
+    potentialMatches        = concatMap allPermutations otherTiles
+    curID                   = tileID t
+    [top, right, bot, left] = borders t
+    otherTiles              = filter ((/= curID) . tileID) ts
 
 squareToClockwiseBorders :: [[a]] -> [[a]]
 squareToClockwiseBorders xs = [top, right, bot, left]
-    where
-        top = head xs
-        right = last <$> xs
-        bot = reverse $ last xs
-        left = reverse (head <$> xs)
+  where
+    top   = head xs
+    right = last <$> xs
+    bot   = reverse $ last xs
+    left  = reverse (head <$> xs)
 
 allPermutations :: Tile -> [Tile]
 allPermutations = nub . concatMap allRotations . sequenceA [id, flipVerically, flipHorizontally]
-    where
-        flipVerically t = t { borders = zipWith ($) [id, reverse, id, reverse] (borders t)}
-        flipHorizontally t = t { borders = zipWith ($) [reverse, id, reverse, id] (borders t)}
+  where
+    flipVerically t = t { borders = zipWith ($) [id, reverse, id, reverse] (borders t) }
+    flipHorizontally t = t { borders = zipWith ($) [reverse, id, reverse, id] (borders t) }
 
 allRotations :: Tile -> [Tile]
-allRotations t = (`rotateTile` t) <$> [0..3]
+allRotations t = (`rotateTile` t) <$> [0 .. 3]
 
 rotateTile :: Int -> Tile -> Tile
 rotateTile n t = t { borders = rotate n (borders t) }
@@ -109,8 +115,8 @@ parse input = case P.parse parser "" input of
     Right result -> result
   where
     parser = tile `P.endBy1` P.space1
-    tile = do
-        id <- symbol "Tile" *> number <* symbol ":" <* P.space1
+    tile   = do
+        id     <- symbol "Tile" *> number <* symbol ":" <* P.space1
         pixels <- P.some pixel `P.sepBy` P.try singleEol
         return (Tile id (squareToClockwiseBorders pixels))
     pixel = P.try (False <$ P.char '.') P.<|> (True <$ P.char '#')
@@ -123,16 +129,14 @@ parse input = case P.parse parser "" input of
     singleEol = P.eol <* P.notFollowedBy P.eol
 
 main = do
-    input <- readFile "inputs/day20.txt"
+    input        <- readFile "inputs/day20.txt"
     exampleInput <- readFile "inputs/day20_example.txt"
     let ts = parse exampleInput
-    print  ts
     print $ matches ts (head ts)
-    print $ solve exampleInput
     runTestTT $ TestCase $ do
-        rotate 0 [1,2,3] @?= [1,2,3]
-        rotate 1 [1,2,3] @?= [2,3,1]
-        rotate 2 [1,2,3] @?= [3,1,2]
-        rotate 3 [1,2,3] @?= [1,2,3]
+        rotate 0 [1, 2, 3] @?= [1, 2, 3]
+        rotate 1 [1, 2, 3] @?= [2, 3, 1]
+        rotate 2 [1, 2, 3] @?= [3, 1, 2]
+        rotate 3 [1, 2, 3] @?= [1, 2, 3]
         solve exampleInput @?= 20899048083289
         solve input @?= 174206308298779
