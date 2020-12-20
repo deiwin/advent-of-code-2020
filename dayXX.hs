@@ -31,7 +31,11 @@ import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as M
 import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as IM
-import           Data.Ix                        ( range )
+import           Data.Array.IArray              ( Array )
+import qualified Data.Array.IArray             as A
+import           Data.Ix                        ( range
+                                                , inRange
+                                                )
 import           Linear.V2                      ( V2(..) )
 import           Linear.V3                      ( V3(..) )
 import           Linear.V4                      ( V4(..) )
