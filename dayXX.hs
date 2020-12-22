@@ -4,6 +4,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TupleSections #-}
 
 import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text )
@@ -23,6 +25,11 @@ import           Debug.Trace                    ( traceShow
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
+import           Data.Sequence                  ( Seq(..)
+                                                , (|>)
+                                                , (<|)
+                                                )
+import qualified Data.Sequence                 as Seq
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as S
 import           Data.IntSet                    ( IntSet )
