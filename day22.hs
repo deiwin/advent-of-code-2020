@@ -1,9 +1,8 @@
 #!/usr/bin/env stack
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text )
@@ -13,69 +12,64 @@ import           Test.HUnit.Text                ( runTestTT )
 import           Test.HUnit.Base                ( Test(TestCase)
                                                 , (@?=)
                                                 )
-import           Criterion.Main                 ( defaultMain
-                                                , bench
-                                                , whnf
-                                                )
-import           Debug.Trace                    ( traceShow
-                                                , traceShowId
-                                                )
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as S
-import           Data.IntSet                    ( IntSet )
-import qualified Data.IntSet                   as IS
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as M
-import           Data.IntMap                    ( IntMap )
-import qualified Data.IntMap                   as IM
 import           Data.Sequence                  ( Seq(..)
                                                 , (|>)
                                                 , (<|)
                                                 )
 import qualified Data.Sequence                 as Seq
-import           Data.Array.IArray              ( Array )
-import qualified Data.Array.IArray             as A
-import           Data.Ix                        ( range
-                                                , inRange
-                                                )
-import           Linear.V2                      ( V2(..) )
-import           Linear.V3                      ( V3(..) )
-import           Linear.V4                      ( V4(..) )
 import           Control.Applicative            ( empty )
 import           Data.Void                      ( Void )
-import           Data.List                      ( foldl1'
-                                                , foldl'
-                                                , isPrefixOf
-                                                , iterate
-                                                )
 import           Data.Foldable                  ( toList )
-import           Data.Ord                       ( comparing )
-import           Data.Function                  ( (&) )
-import           Control.Arrow                  ( (>>>)
-                                                , second
-                                                , (***)
-                                                )
-import           Data.Maybe                     ( isJust
-                                                , catMaybes
-                                                )
-import           Control.Monad                  ( guard )
+import           Control.Arrow                  ( (***) )
+import           Data.Either                    ( fromLeft )
 
 type Parser = P.Parsec Void Text
+type Hand = Seq Int
+type TwoHands = (Hand, Hand)
 
-solve :: Text -> _
-solve input = sum $ zipWith (*) [1 ..] $ toList $ Seq.reverse finalHand
+solve :: Text -> Int
+solve input = score finalHand
   where
-    hands            = (***) Seq.fromList Seq.fromList $ parse input
-    (Left finalHand) = iterateM_ playRound hands
+    hands     = (***) Seq.fromList Seq.fromList $ parse input
+    finalHand = playGame hands
 
-playRound :: (Seq Int, Seq Int) -> Either (Seq Int) (Seq Int, Seq Int)
+playGame :: TwoHands -> Hand
+playGame = fromLeft (error "Should finish") . iterateM_ playRound
+playRound :: TwoHands -> Either Hand TwoHands
 playRound = \case
     (as      , Empty   ) -> Left as
     (Empty   , bs      ) -> Left bs
     (a :<| as, b :<| bs) -> if a > b then Right (as |> a |> b, bs) else Right (as, bs |> b |> a)
+
+score :: Hand -> Int
+score = sum . zipWith (*) [1 ..] . toList . Seq.reverse
+
+solve2 :: Text -> Int
+solve2 input = score finalHand
+  where
+    hands          = (***) Seq.fromList Seq.fromList $ parse input
+    (_, finalHand) = playRecGame hands
+
+playRecGame :: TwoHands -> (Bool, Hand)
+playRecGame = fromLeft (error "Should finish") . iterateM_ playRecRound . (S.empty, )
+playRecRound :: (Set TwoHands, TwoHands) -> Either (Bool, Hand) (Set TwoHands, TwoHands)
+playRecRound (s, hands@(as, _)) | hands `S.member` s = Left (True, as)
+playRecRound (_, (as, Empty))                        = Left (True, as)
+playRecRound (_, (Empty, bs))                        = Left (False, bs)
+playRecRound (s, hands@(a :<| as, b :<| bs)) | canRecurse = if aWonRec then aVictory else bVictory
+                                             | a > b      = aVictory
+                                             | otherwise  = bVictory
+  where
+    newSet       = S.insert hands s
+    aVictory     = Right (newSet, (as |> a |> b, bs))
+    bVictory     = Right (newSet, (as, bs |> b |> a))
+    canRecurse   = Seq.length as >= a && Seq.length bs >= b
+    (aWonRec, _) = playRecGame (Seq.take a as, Seq.take b bs)
 
 iterateM_ :: Monad m => (a -> m a) -> a -> m b
 iterateM_ f = g where g x = f x >>= g
@@ -103,3 +97,5 @@ main = do
     runTestTT $ TestCase $ do
         solve exampleInput @?= 306
         solve input @?= 31809
+        solve2 exampleInput @?= 291
+        solve2 input @?= 32835
