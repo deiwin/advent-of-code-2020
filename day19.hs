@@ -1,8 +1,6 @@
 #!/usr/bin/env stack
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE LambdaCase #-}
 
 import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text )
@@ -27,13 +25,13 @@ type Parser = P.Parsec Void Text
 data Rule = C Char | R [[Int]] deriving (Show, Eq)
 
 solve :: Text -> Int
-solve input = length $ filter null $ catMaybes parsedMessages
+solve input = length $ filter (elem "") parsedMessages
   where
     (rules, messages) = parse input
     parsedMessages    = parseMessage rules 0 <$> messages
 
 solve2 :: Text -> Int
-solve2 input = length $ catMaybes parsedMessages
+solve2 input = length $ filter (elem "") parsedMessages
   where
     (rules, messages) = parse input
     newRules          = rules
@@ -41,17 +39,17 @@ solve2 input = length $ catMaybes parsedMessages
                         & IM.insert 11 (R [[42, 31], [42, 11, 31]])
     parsedMessages    = parseMessage newRules 0 <$> messages
 
-parseMessage :: IntMap Rule -> Int -> String -> Maybe String
+parseMessage :: IntMap Rule -> Int -> String -> [String]
 parseMessage rules ruleIx = go (rules IM.! ruleIx)
   where
-      go _ [] = Nothing
+      go _ [] = []
       go (C c) (x:xs)
-        | c == x = Just xs
-        | otherwise = Nothing
-      go (R rss) xs = listToMaybe $ catMaybes ((`goSeq` xs) <$> rss)
+        | c == x = [xs]
+        | otherwise = []
+      go (R rss) xs = concatMap (`goSeq` xs) rss
 
-      goSeq [] xs = Just xs
-      goSeq _ [] = Nothing
+      goSeq [] xs = [xs]
+      goSeq _ [] = []
       goSeq (r:rs) xs = parseMessage rules r xs >>= goSeq rs
 
 parse :: Text -> (IntMap Rule, [String])
@@ -86,5 +84,5 @@ main = do
     runTestTT $ TestCase $ do
         solve exampleInput @?= 2
         solve input @?= 213
-        -- solve2 exampleInput2 @?= 12
-        -- solve2 input @?= 325
+        solve2 exampleInput2 @?= 12
+        solve2 input @?= 325
