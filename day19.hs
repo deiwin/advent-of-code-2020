@@ -18,7 +18,9 @@ import qualified Data.IntMap                   as IM
 import           Control.Applicative            ( empty )
 import           Data.Void                      ( Void )
 import           Data.Function                  ( (&) )
-import           Data.Maybe                     ( catMaybes, listToMaybe )
+import           Data.Maybe                     ( catMaybes
+                                                , listToMaybe
+                                                )
 import           Data.Foldable                  ( asum )
 
 type Parser = P.Parsec Void Text
@@ -42,15 +44,14 @@ solve2 input = length $ filter (elem "") parsedMessages
 parseMessage :: IntMap Rule -> Int -> String -> [String]
 parseMessage rules ruleIx = go (rules IM.! ruleIx)
   where
-      go _ [] = []
-      go (C c) (x:xs)
-        | c == x = [xs]
-        | otherwise = []
-      go (R rss) xs = concatMap (`goSeq` xs) rss
+    go _ [] = []
+    go (C c) (x : xs) | c == x    = [xs]
+                      | otherwise = []
+    go (R rss) xs = concatMap (`goSeq` xs) rss
 
-      goSeq [] xs = [xs]
-      goSeq _ [] = []
-      goSeq (r:rs) xs = parseMessage rules r xs >>= goSeq rs
+    goSeq []       xs = [xs]
+    goSeq _        [] = []
+    goSeq (r : rs) xs = parseMessage rules r xs >>= goSeq rs
 
 parse :: Text -> (IntMap Rule, [String])
 parse input = case P.parse parser "" input of
