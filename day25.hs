@@ -1,11 +1,7 @@
 #!/usr/bin/env stack
 -- stack --resolver lts-15.6 runghc --package HUnit --package text
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DataKinds #-}
 
 import           Prelude                 hiding ( readFile )
 import           Data.Text                      ( Text )
@@ -19,73 +15,46 @@ import           Criterion.Main                 ( defaultMain
                                                 , bench
                                                 , whnf
                                                 )
-import           Debug.Trace                    ( traceShow
-                                                , traceShowId
-                                                )
 import qualified Text.Megaparsec               as P
 import qualified Text.Megaparsec.Char          as P
 import qualified Text.Megaparsec.Char.Lexer    as PL
-import           Data.Sequence                  ( Seq(..)
-                                                , (|>)
-                                                , (<|)
-                                                )
-import qualified Data.Sequence                 as Seq
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as S
-import           Data.IntSet                    ( IntSet )
-import qualified Data.IntSet                   as IS
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as M
-import           Data.IntMap                    ( IntMap )
-import qualified Data.IntMap                   as IM
-import           Data.Array.IArray              ( Array )
-import qualified Data.Array.IArray             as A
-import           Data.Ix                        ( range
-                                                , inRange
-                                                )
-import           Linear.V2                      ( V2(..) )
-import           Linear.V3                      ( V3(..) )
-import           Linear.V4                      ( V4(..) )
 import           Control.Applicative            ( empty )
 import           Data.Void                      ( Void )
-import           Data.List                      ( foldl1'
-                                                , foldl'
-                                                , isPrefixOf
-                                                , iterate
+import           Control.Arrow                  ( (***) )
+import           Math.NumberTheory.Powers.Modular
+                                                ( powMod )
+import           Math.NumberTheory.Moduli.DiscreteLogarithm
+                                                ( discreteLogarithm )
+import           Math.NumberTheory.Moduli.PrimitiveRoot
+                                                ( isPrimitiveRoot )
+import           Math.NumberTheory.Moduli.Class ( isMultElement )
+import           Math.NumberTheory.Moduli.Singleton
+                                                ( CyclicGroup(..)
+                                                , cyclicGroup
                                                 )
-import           Data.Ord                       ( comparing )
-import           Data.Function                  ( (&) )
-import           Control.Arrow                  ( (>>>), second, (***) )
-import           Data.Maybe                     ( isJust
-                                                , catMaybes
-                                                )
-import           Control.Monad                  ( guard )
+import           Data.Maybe                     ( fromJust )
 
 type Parser = P.Parsec Void Text
 
 modulo = 20201227
+type Modulo = 20201227
 
-solve :: Text -> _
+solve :: Text -> Int
 solve input = encryptionKey
-    where
-        pkeys@(pkeyA, pkeyB) = parse input
-        (loopSizeA, loopSizeB) = both loopSize pkeys
-        encryptionKey = if loopSizeA < loopSizeB
-                           then runLoop pkeyB loopSizeA
-                           else runLoop pkeyA loopSizeB
+  where
+    pkeys@(pkeyA    , pkeyB    ) = parse input
+    (      loopSizeA, loopSizeB) = both loopSize pkeys
+    encryptionKey | loopSizeA < loopSizeB = runLoop pkeyB loopSizeA
+                  | otherwise             = runLoop pkeyA loopSizeB
 
-runLoop subject loopSize = iterate f subject !! (loopSize - 1)
-    where f x = (x * subject) `rem` modulo
+runLoop subject loopSize = powMod subject loopSize modulo
 
-loopSize :: Int -> Int
-loopSize = go 7 7 1
-    where
-        go !subject !val !i !goal
-          | newVal == goal = newI
-          | otherwise = go subject newVal newI goal
-          where
-              newVal = (val * subject) `rem` modulo
-              newI = i + 1
+loopSize :: (Integral a) => a -> Int
+loopSize subject = fromIntegral $ discreteLogarithm cg rt x
+  where
+    cg = fromJust cyclicGroup :: CyclicGroup Integer Modulo
+    rt = fromJust (isPrimitiveRoot cg 7)
+    x  = fromJust (isMultElement (fromIntegral subject))
 
 both :: (a -> b) -> (a, a) -> (b, b)
 both f = (***) f f
@@ -105,9 +74,11 @@ parse input = case P.parse parser "" input of
     number        = lexeme PL.decimal
 
 main = do
-    input <- readFile "inputs/day25.txt"
+    input        <- readFile "inputs/day25.txt"
     exampleInput <- readFile "inputs/day25_example.txt"
-    -- print $ solve exampleInput
     runTestTT $ TestCase $ do
         solve exampleInput @?= 14897079
         solve input @?= 9177528
+    defaultMain [ bench "exampleInput" (whnf solve exampleInput)
+                , bench "input" (whnf solve input)
+                ]
